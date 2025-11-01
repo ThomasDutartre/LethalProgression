@@ -32,7 +32,7 @@ namespace LethalProgression.Skills
         [HarmonyPatch(typeof(PlayerControllerB), "SetFaceUnderwaterFilters")]
         private static void ShouldDrown(PlayerControllerB __instance)
         {
-            if (!canDrown)
+            if (!canDrown && StartOfRound.Instance != null)
             {
                 StartOfRound.Instance.drowningTimer = 99f;
             }
@@ -41,6 +41,26 @@ namespace LethalProgression.Skills
         [HarmonyPatch(typeof(PlayerControllerB), "LateUpdate")]
         private static void OxygenUpdate(PlayerControllerB __instance)
         {
+            // Vérification si l'oxygène est activé dans la config - sortie immédiate si désactivé
+            try
+            {
+                if (LethalProgression.Config.SkillConfig.hostConfig != null && 
+                    LethalProgression.Config.SkillConfig.hostConfig.ContainsKey("Oxygen Enabled") &&
+                    !bool.Parse(LethalProgression.Config.SkillConfig.hostConfig["Oxygen Enabled"]))
+                    return;
+            }
+            catch
+            {
+                // Si on ne peut pas accéder à la config, on considère que c'est désactivé
+                return;
+            }
+
+            // Vérifications null pour éviter les crashes
+            if (LP_NetworkManager.xpInstance == null)
+                return;
+
+            if (LP_NetworkManager.xpInstance.skillList == null)
+                return;
 
             if (!LP_NetworkManager.xpInstance.skillList.IsSkillListValid())
                 return;
@@ -63,7 +83,7 @@ namespace LethalProgression.Skills
                 {
                     oxygenBar.SetActive(false);
                 }
-                if (!canDrown)
+                if (!canDrown && StartOfRound.Instance != null)
                 {
                     canDrown = true;
                     StartOfRound.Instance.drowningTimer = 1f;
@@ -75,6 +95,9 @@ namespace LethalProgression.Skills
                 CreateOxygenBar();
 
             Skill skill = LP_NetworkManager.xpInstance.skillList.skills[UpgradeType.Oxygen];
+            if (skill == null)
+                return;
+                
             float maxOxygen = skill.GetTrueValue();
             if (inWater)
             {
@@ -89,7 +112,7 @@ namespace LethalProgression.Skills
                     else
                     {
                         // It's 0! We're drowning!
-                        if (!canDrown)
+                        if (!canDrown && StartOfRound.Instance != null)
                         {
                             canDrown = true;
                             StartOfRound.Instance.drowningTimer = 1f;
